@@ -1,0 +1,10 @@
+
+flask
+flask-cors
+mysql-connector-python
+openai
+python-dotenv
+streamlit
+google-generativeai
+twilio
+psycopg2-binary

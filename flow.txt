@@ -1,0 +1,132 @@
+
+ 1. Chat Initiation + Main Menu
+Trigger: User sends “Hi” (Twilio catches this in a webhook).
+
+Bot Response:
+Welcome to ELG, your destination for premium lab-grown diamonds.
+What would you like to explore?
+1. Lab Diamonds
+2. Lab Jewelry
+3. Lab Melee
+4. Track My Order
+5. Talk to Support
+
+(Reply with number or keyword, e.g., "1" or "Lab Diamonds")
+✅ You’ll define a state variable current_step = main_menu
+
+🔹 2. Lab Diamonds Flow
+Trigger: User replies "1" or "Lab Diamonds"
+
+Bot Response:
+
+Let’s help you find your perfect lab-grown diamond.
+Please share the following details (comma separated):
+Shape, Carat, Color, Clarity, Cut, Budget->price
+
+(Example: Round, 1.5ct, D, VS1, Ideal, ₹1,00,000)
+✅ Set current_step = collect_diamond_specs
+
+🔹 3. Collect & Match Diamond
+User Input Example:
+
+Round, 1.5ct, D, VS1, Ideal, ₹100000
+
+
+Match products from a database/API
+
+If matches found: send 3–4 options + links
+
+If no match: ask if they want a custom quote
+
+Bot Response (Matches Found):
+
+Here are some options based on your preferences:
+
+1. Round | 1.5ct | D | VS1 | Ideal | ₹95,000
+2. Round | 1.6ct | D | VS1 | Ideal | ₹98,000
+3. Round | 1.4ct | D | VVS1 | Ideal | ₹92,000
+
+Reply: add to cart 1
+
+Explore More: https://elg.com/diamonds
+✅ current_step = diamond_results_shown
+
+🔹 4. If No Match → Quote Flow
+Bot Response:
+
+We couldn’t find an exact match. Would you like a custom quote?
+Type "Quote" or "Yes" to proceed.
+→ On "Quote":
+
+Please share your preferences again. Our team will prepare a personalized quote.
+Submit here: https://elg.com/quote
+✅ current_step = quote_requested
+
+🔹 5. Add to Cart
+If user types add to cart 1, parse and confirm:
+
+✅ Product 1 has been added to your cart.
+Continue shopping: https://elg.com/diamonds
+🔧 Backend Workflow (Python + Twilio Webhook)
+
+@app.route("/whatsapp", methods=["POST"])
+def whatsapp_bot():
+    incoming_msg = request.values.get('Body', '').strip().lower()
+    user_number = request.values.get('From')
+    
+    session = get_user_session(user_number)  # from DB or memory
+
+    if incoming_msg in ["hi", "hello"] or session.current_step == "main_menu":
+        session.current_step = "main_menu"
+        return send_whatsapp_response(MAIN_MENU_TEXT)
+
+    elif incoming_msg in ["1", "lab diamonds"] or session.current_step == "collect_diamond_specs":
+        if session.current_step != "collect_diamond_specs":
+            session.current_step = "collect_diamond_specs"
+            return send_whatsapp_response(DIAMOND_QUESTION_TEXT)
+        else:
+            preferences = parse_diamond_preferences(incoming_msg)
+            matches = find_matching_diamonds(preferences)
+
+            if matches:
+                session.current_step = "diamond_results_shown"
+                return send_whatsapp_response(format_products(matches))
+            else:
+                session.current_step = "quote_suggestion"
+                return send_whatsapp_response(NO_MATCH_TEXT)
+
+    elif incoming_msg in ["quote", "yes"] and session.current_step == "quote_suggestion":
+        session.current_step = "quote_requested"
+        return send_whatsapp_response(QUOTE_INSTRUCTION_TEXT)
+
+    # Handle add to cart
+    elif incoming_msg.startswith("add to cart") and session.current_step == "diamond_results_shown":
+        item_num = extract_item_number(incoming_msg)
+        cart_add(item_num, user_number)
+        return send_whatsapp_response("✅ Added to cart. Continue shopping: https://elg.com/diamonds")
+
+    else:
+        # fallback to Gemini for unknown queries
+        response = gemini_chat(incoming_msg, session)
+        return send_whatsapp_response(response)
+
+
+
+🧠 Gemini Integration
+Use Gemini only for fallback questions or “Talk to Support”:
+
+def gemini_chat(query, session):
+    if "chat" not in session:
+        session["chat"] = gemini_model.start_chat(history=[])
+
+    reply = session["chat"].send_message(query)
+    return reply.text
+🚀 Next Steps
+Connect WhatsApp via Twilio
+
+Use FastAPI/Flask + Redis to manage user sessions
+
+Create or connect product DB/API
+
+Secure Gemini API key and fallback only when needed
+
