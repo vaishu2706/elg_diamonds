@@ -291,6 +291,10 @@ Message: "{incoming_msg}"
 
     return "OK", 200
 
+
+
+print("Commit under correct GitHub identity")
+
 # Run the Flask app
 if __name__ == "__main__":
     app.run(debug=True)
